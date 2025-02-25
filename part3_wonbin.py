@@ -4,6 +4,7 @@ import pandas as pd
 import statsmodels.api as sm
 conn = sqlite3.connect("fitbit_database.db")
 
+# %%
 # check tables
 tables_query = "SELECT name FROM sqlite_master WHERE type='table';"
 tables = pd.read_sql_query(tables_query, conn)
