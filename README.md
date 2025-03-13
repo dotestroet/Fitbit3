@@ -9,7 +9,8 @@ Part3.py
 
 ## Data Wrangling
 part4_wrangling.py 
-is part 4 of the assignment and the first step was replacing the missing values. To determine how to replace the missing values we checked the average and median with the use of outliers. We decided that median was the best course of action. 
+Did a small data exploration of fitbit_database.db. Started with data cleaning by finding the outliers, missing, values and duplicates. 
+The weight_log table we substituted the missing values with the median, considering the outliers. The fat_column was removed because it missed 31/33 values. Had to remove 525 duplicate rows in table 'minute_sleep'.
 
 ## Files Overview
 
@@ -23,3 +24,5 @@ Created the following folders to organize the project better
     scripts/
     dashboard/
     data/
+
+Added files: database_queries.py. This is the SQL file that part4_wrangling.py uses. 
