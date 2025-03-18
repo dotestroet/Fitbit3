@@ -57,7 +57,7 @@ def run_regression(df, y_variable, x_variables, selected_blocks=None):
     print(model.summary())
     return model
 
-def plot_general_weather_analysis(df, y_variable="StepTotal", x_variable="temp", selected_blocks=None, precip_scale=20):
+def plot_general_weather_analysis(df, y_variable, x_variable, selected_blocks=None, precip_scale=20):
     if selected_blocks is None:
         selected_blocks = ["8-12", "12-16", "16-20"]
     filtered_df = df[df["TimeBlock"].isin(selected_blocks)]
@@ -83,7 +83,7 @@ def plot_general_weather_analysis(df, y_variable="StepTotal", x_variable="temp",
     ax2.legend(loc="upper right")
     plt.show()
 
-def plot_user_weather_analysis(df, user_id, y_variable="StepTotal", x_variable="temp", selected_blocks=None, precip_scale=20):
+def plot_user_weather_analysis(df, user_id, y_variable, x_variable, selected_blocks=None, precip_scale=20):
     user_df = df[(df["Id"] == user_id) & (df["TimeBlock"].isin(selected_blocks))]
     if user_df.empty:
         print(f"No data found for user ID {user_id} in time blocks {selected_blocks}.")
@@ -110,21 +110,24 @@ def plot_user_weather_analysis(df, user_id, y_variable="StepTotal", x_variable="
     ax2.legend(loc="upper right")
     plt.show()
 
-def main():
+def data_used():
     db_path = "/Users/dotestroet/DataEngineering/Fitbit3/data/fitbit_database_modified.db"
+    weather_path = "/Users/dotestroet/DataEngineering/Fitbit3/data/Chicago 2016-03-11 to 2016-04-13 hourly.csv"
+
     hourly_calories_df = load_data_from_database(db_path, 'SELECT * FROM hourly_calories')
     hourly_steps_df = load_data_from_database(db_path, 'SELECT * FROM hourly_steps')
-    weather_df = match_weather_df(load_weather_data('/Users/dotestroet/DataEngineering/Fitbit3/data/Chicago 2016-03-11 to 2016-04-13 hourly.csv'))
+    weather_df = match_weather_df(load_weather_data(weather_path))
+
     fitbit_df = merge_fitbit_data(hourly_steps_df, hourly_calories_df)
     merged_df = assign_time_blocks(convert_time_to_twentyfour_hours(merge_fitbit_and_weather_data(fitbit_df, weather_df), "ActivityHour"))
-    
-    selected_blocks = ["8-12", "12-16", "16-20"]
-    filtered_df = merged_df[merged_df["TimeBlock"].isin(selected_blocks)]
-    filtered_df["temp_squared"] = filtered_df["temp"] ** 2
-    
-    run_regression(filtered_df, "StepTotal", ["temp", "temp_squared", "precip"], selected_blocks)
-    plot_general_weather_analysis(filtered_df, y_variable="StepTotal", x_variable="temp", selected_blocks=selected_blocks)
-    plot_user_weather_analysis(filtered_df, user_id=1503960366, y_variable="Calories", x_variable="precip", selected_blocks=selected_blocks)
 
-if __name__ == "__main__":
-    main()
+    return merged_df
+
+merged_df = data_used()
+selected_blocks = ["8-12", "12-16", "16-20"]
+filtered_df = merged_df[merged_df["TimeBlock"].isin(selected_blocks)]
+filtered_df["temp_squared"] = filtered_df["temp"] ** 2
+    
+run_regression(filtered_df, y_variable = "StepTotal", x_variables = ["temp", "temp_squared", "precip"], selected_blocks = selected_blocks)
+plot_general_weather_analysis(filtered_df, y_variable="StepTotal", x_variable="temp", selected_blocks=selected_blocks)
+plot_user_weather_analysis(filtered_df, user_id=1503960366, y_variable="Calories", x_variable="precip", selected_blocks=selected_blocks)
