@@ -5,6 +5,7 @@ The assignment Fitbit 3 is for the course Data Engineering and is used to create
 This project involves the following major tasks:
 Exploration of the fitbit data to understand its structure
 Data Wrangling where data cleanring, feature engineering, and mergings datasets are done to prepare the data for analysis and visualizion in the dashboard. 
+Dashboard development for interactive data visualization
 
 ## File Overview
 
@@ -27,6 +28,14 @@ Merged data from multiple tables:
 
 Implemented checks to ensure there are no missing values, duplicates or other issues. 
 
+## Dashboard
+dashboard/app.py - Streamlit is used
+Features
+- User activity analysis
+- time based trends
+sleep analysis
+weather impact on activity
+database management tools
 
 ## Folder Structure 
 
