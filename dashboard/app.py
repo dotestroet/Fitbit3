@@ -8,6 +8,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 from scripts.database_queries import fetch_table_data, get_table_names, save_table_data
+from scripts.graphs import *
 from scripts.weather_analysis import merged_df, run_regression, plot_general_weather_analysis, plot_user_weather_analysis
 from scripts.divide_the_day import convert_time_to_twentyfour_hours, assign_time_blocks
 
@@ -43,20 +44,24 @@ if page == "🏠 Home":
     total_active_minutes = daily_activity["TotalActiveMinutes"].sum()
 
     total_days = len(daily_activity["ActivityDate"].unique())
+    col1, col2, col3, col4, col5 = st.columns(5)
+    with col1:
+        st.metric("Total Users", total_users)
+    with col2:
+        st.metric("Total Number of Days Recorded", total_days)
+    with col3:
+        st.metric("Average Steps Per Day", round(avg_steps, 2))
+    with col4:
+        st.metric("Average Calories Burnt Per Day", round(avg_calories, 2))
+    with col5:
+        st.metric("Average Active Minutes Per Day", round(avg_active_minutes, 2))
 
-    st.metric("Total Users", total_users)
-    st.metric("Average Steps Per Day", round(avg_steps, 2))
-    st.metric("Average Calories Burnt Per Day", round(avg_calories, 2))
-    st.metric("Average Active Minutes Per Day", round(avg_active_minutes, 2))
-    st.metric("Total Calories Burnt", round(total_calories, 2))
-    st.metric("Total Active Minutes", round(total_active_minutes, 2))
-    st.metric("Total Number of Days Recorded", total_days)
- 
-    fig, ax = plt.subplots()
-    ax.bar(["Total Active Minutes", "Total Calores Burnt"], [total_active_minutes, total_calories])
-    ax.set_title("Total Activity vs Calories Burnt")
-    st.pyplot(fig)
+    col6, col7 = st.columns(2)
 
+    with col6:
+        st.pyplot(plot_activity_distribution(daily_activity))
+    with col7:
+        st.pyplot(plot_sleep_duration_histogram(fetch_table_data("minute_sleep", use_modified=True)))
 
 
 # =================== Database Management ===================
@@ -97,40 +102,68 @@ elif page == "📊 User Statistics":
     avg_steps = user_data["TotalSteps"].mean()
     avg_calories = user_data["Calories"].mean()
 
-    avg_resting_heart_rate = user_heart_rate_data["RestingHeartRate"].mean() if not user_heart_rate_data.empty else 0
+    #avg_resting_heart_rate = user_heart_rate_data["RestingHeartRate"].mean() if not user_heart_rate_data.empty else 0
     avg_weight = user_weight_data["WeightKg"].mean() if not user_weight_data.empty else 0
 
-    st.metric("Total Steps", round(total_steps, 2))
-    st.metric("Total Calories Burnt", round(total_calories, 2))
-    st.metric("Average Steps Per Day", round(avg_steps, 2))
-    st.metric("Average Calories Burnt Per Day", round(avg_calories, 2))
+    col1, col2, col3, col4, col5 = st.columns(5)
 
-    if avg_resting_heart_rate > 0:
-        st.metric("Average Resting Heart Rate", round(avg_resting_heart_rate, 2))
+    with col1:
+        st.metric("Total Steps", round(total_steps, 2))
+    with col2:
+        st.metric("Total Calories Burnt", round(total_calories, 2))
+    with col3:
+        st.metric("Average Steps Per Day", round(avg_steps, 2))
+    with col4:
+        st.metric("Average Calories Burnt Per Day", round(avg_calories, 2))
+
+    #if avg_resting_heart_rate > 0:
+    #    st.metric("Average Resting Heart Rate", round(avg_resting_heart_rate, 2))
     
     if avg_weight > 0:
-        st.metric("Average Weight (kg)", round(avg_weight, 2))
+        with col5:
+            st.metric("Average Weight (kg)", round(avg_weight, 2))
 
-
+    col6, col7 = st.columns(2)
     st.subheader(f"Calories Burnt Over Time for User {user_id}")
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(5,5))
     ax.plot(user_data["ActivityDate"], user_data["Calories"], marker="o", linestyle="-", color="red")
     ax.set_xlabel("Date")
     ax.set_ylabel("Calories Burnt")
     ax.set_title("Daily Calories Burnt")
     plt.xticks(rotation=45)
-    st.pyplot(fig)
+    with col6:
+        st.pyplot(fig)
 
     st.subheader(f"Steps Over Time for User {user_id}")
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(5,5))
     ax.plot(user_data["ActivityDate"], user_data["TotalSteps"], marker="o", linestyle="-", color="blue")
     ax.set_xlabel("Date")
     ax.set_ylabel("Total Steps")
     ax.set_title("Daily Steps")
     plt.xticks(rotation=45)
-    st.pyplot(fig)
+    with col7:
+        st.pyplot(fig)
 
+    start_date = pd.to_datetime("2016-03-12")
+    end_date = pd.to_datetime("2016-09-04")
 
+    selected_date = st.date_input(
+        "Select a Date",
+        value=start_date,  # Default to the start date
+        min_value=start_date,
+        max_value=end_date
+    )
+    session = st.text_input("nth session")
+    date = selected_date.strftime("%#m/%#d/%Y")
+    col8, col9 = st.columns(2)
+    if selected_date:
+        with col8:
+            fig = plot_total_intensity(fetch_table_data("hourly_intensity", use_modified=True), user_id, date)
+            st.pyplot(fig)
+        with col9:
+            if session:
+                fig = plot_heart_rate(heart_rate_data, user_id, date , session)
+                st.pyplot(fig)
 
 
 # =================== Time-based Analysis ===================
