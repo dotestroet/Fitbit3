@@ -6,10 +6,12 @@ import sys
 import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 from scripts.database_queries import fetch_table_data, get_table_names, save_table_data
+from scripts.weather_analysis import merged_df, run_regression, plot_general_weather_analysis, plot_user_weather_analysis
+from scripts.divide_the_day import convert_time_to_twentyfour_hours, assign_time_blocks
 
-
+st.set_page_config(layout="wide")
 st.sidebar.title("Navigation")
 page = st.sidebar.radio("Go to", ["🏠 Home", "📊 User Statistics", "⏳ Time-based Analysis", "💤 Sleep Analysis", "🌦️ Weather & Activity", "🔧 Database Management"])
 
@@ -142,7 +144,103 @@ elif page == "💤 Sleep Analysis":
     st.title("Sleep Duration Analysis")
 
 
-
+  
 # =================== Weather & Activity ===================
 elif page == "🌦️ Weather & Activity":
-    st.title("Weather Impact on Activity")
+    #test
+    def load_user_selection():
+        st.sidebar.header("Select Data")
+        user_ids = merged_df["Id"].unique().tolist()
+        user_id = st.sidebar.selectbox("Select User ID", user_ids, index=0)
+        selected_blocks = st.sidebar.multiselect("Select Time Blocks", ["0-4", "4-8", "8-12", "12-16", "16-20", "20-24"], default=["8-12", "12-16", "16-20"])
+        y_variable = st.sidebar.selectbox("Select Target Variable", ["StepTotal", "Calories", "TotalIntensity"], index=0)
+        x_variables = st.sidebar.multiselect("Select Weather Variables", ["temp", "temp_squared", "precip"], default=["temp"])
+        return user_id, selected_blocks, y_variable, x_variables
+
+    def filter_data(user_id, selected_blocks):
+        filtered_df = merged_df[merged_df["TimeBlock"].isin(selected_blocks)]
+        filtered_df["temp_squared"] = filtered_df["temp"] ** 2
+        user_specific_df = filtered_df[filtered_df["Id"] == user_id]
+        return filtered_df, user_specific_df
+
+    def summarize_regression_results(model, y_variable, x_variables):
+        if not x_variables:
+            st.error("No weather variables were selected. Please choose at least one variable for regression analysis.")
+            return
+        
+        r_squared = model.rsquared
+        adj_r_squared = model.rsquared_adj
+        
+        coef_df = pd.DataFrame({
+            "Predictor": model.params.index,
+            "Coefficient": model.params.values,
+            "P-value": model.pvalues.values
+        })
+        coef_df = coef_df[coef_df["Predictor"] != "const"]
+        
+        significant_predictors = coef_df[coef_df["P-value"] < 0.05]
+        
+        st.write(f"Weather Variables Used: {', '.join(x_variables)}")
+        
+        if r_squared < 0.1:
+            st.warning(f"The model has a very low R-squared value ({r_squared:.4f}), indicating that the weather variables do not significantly explain the variance in `{y_variable}`.")
+        else:
+            st.success(f"The model has an R-squared value of {r_squared:.4f}, indicating that the weather variables moderately explain the variance in `{y_variable}`.")
+        
+        if not significant_predictors.empty:
+            significant_vars = ', '.join(significant_predictors['Predictor'].values)
+            st.success(f"Significant Predictors (P-value < 0.05): {significant_vars}.")
+        else:
+            st.error("None of the selected weather variables are statistically significant (P-value ≥ 0.05).")
+
+    def display_general_regression(filtered_df, selected_blocks, y_variable, x_variables):
+        if not x_variables:
+            st.error("No weather variables selected. Please choose at least one variable.")
+            return
+
+        st.subheader("General Regression Analysis With All Users")
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            model = run_regression(filtered_df, y_variable=y_variable, x_variables=x_variables, selected_blocks=selected_blocks)
+            if model:
+                summarize_regression_results(model, y_variable, x_variables)
+        with col2:
+            for x_variable in x_variables:
+                fig1 = plot_general_weather_analysis(filtered_df, y_variable=y_variable, x_variable=x_variable, selected_blocks=selected_blocks)
+                if fig1:
+                    st.pyplot(fig1)
+
+
+    def display_user_specific_analysis(user_specific_df, user_id, selected_blocks, y_variable, x_variables):
+        st.subheader(f"User-Specific Regression Analysis for User {user_id}")
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            model = run_regression(user_specific_df, y_variable=y_variable, x_variables=x_variables, selected_blocks=selected_blocks)
+            if model:
+                summarize_regression_results(model, y_variable, x_variables)
+        with col2:
+            for x_variable in x_variables:
+                fig2 = plot_user_weather_analysis(user_specific_df, user_id=user_id, y_variable=y_variable, x_variable=x_variable, selected_blocks=selected_blocks)
+                if fig2:
+                    st.pyplot(fig2)
+
+    def main():
+        st.title("Weather Impact on Activity")
+        user_id, selected_blocks, y_variable, x_variables = load_user_selection()
+        
+        filtered_df, user_specific_df = filter_data(user_id, selected_blocks)
+        if filtered_df.empty:
+            st.warning(f"No data found in selected time blocks.")
+        else:
+            display_general_regression(filtered_df, selected_blocks, y_variable, x_variables)
+            st.markdown("---")
+            display_user_specific_analysis(user_specific_df, user_id, selected_blocks, y_variable, x_variables)
+
+    if __name__ == "__main__":
+        main()
+
+
+
+
+
+
