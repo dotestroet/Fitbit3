@@ -4,7 +4,11 @@ import statsmodels.api as sm
 import seaborn as sns
 import matplotlib.pyplot as plt
 from datetime import datetime
+import sys
+import os
 from divide_the_day import convert_time_to_twentyfour_hours, assign_time_blocks
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def load_data_from_database(db_path, query): 
     connection = sqlite3.connect(db_path)
@@ -15,14 +19,25 @@ def load_data_from_database(db_path, query):
     connection.close()
     return df
 
-def merge_fitbit_data(hourly_steps_df, hourly_calories_df):
-    return pd.merge(hourly_calories_df, hourly_steps_df, on=["Id", "ActivityHour", "Date", "TimeOfDay"], how="inner")
+def merge_fitbit_data(hourly_steps_df, hourly_calories_df, hourly_intensity_df):
+    merged_df = pd.merge(hourly_calories_df, hourly_steps_df, on=["Id", "ActivityHour", "Date", "TimeOfDay"], how="inner")
+    merged_df = pd.merge(merged_df, hourly_intensity_df, on=["Id", "ActivityHour", "Date", "TimeOfDay"], how="inner")
+    return merged_df
 
 def load_weather_data(file_path):
     weather_df = pd.read_csv(file_path)
     weather_df["datetime"] = pd.to_datetime(weather_df["datetime"])
     weather_df.rename(columns={"datetime": "ActivityHour"}, inplace=True)
-    weather_df.drop(columns=["solarradiation", "solarenergy", "uvindex", "severerisk", "icon", "stations", "winddir", "snowdepth", "sealevelpressure", "name", "dew", "windgust"], inplace=True)
+    
+    # Convert temperature from Fahrenheit to Celsius
+    weather_df["temp"] = (weather_df["temp"] - 32) * (5 / 9)
+    
+    # Convert precipitation from inches to millimeters
+    if "precip" in weather_df.columns:
+        weather_df["precip"] = weather_df["precip"] * 25.4
+    
+    weather_df.drop(columns=["solarradiation", "solarenergy", "uvindex", "severerisk", "icon", "stations", 
+                             "winddir", "snowdepth", "sealevelpressure", "name", "dew", "windgust"], inplace=True)
     weather_df.fillna({"windgust": 0, "preciptype": "None"}, inplace=True)
     return weather_df
 
@@ -62,63 +77,100 @@ def plot_general_weather_analysis(df, y_variable, x_variable, selected_blocks=No
         selected_blocks = ["8-12", "12-16", "16-20"]
     filtered_df = df[df["TimeBlock"].isin(selected_blocks)]
     filtered_df["Date"] = pd.to_datetime(filtered_df["Date"])
+    filtered_df = filtered_df.dropna(subset=[y_variable, x_variable, "precip", "temp"])
+    
     daily_avg = filtered_df.groupby("Date").agg({
         y_variable: "mean",
-        "temp": "mean",
+        x_variable: "mean",
         "precip": "mean"
     }).reset_index()
+
+    if x_variable == "precip":
+        precip_scale = 100 / (daily_avg["precip"].max() + 0.1)
     daily_avg["precip_scaled"] = daily_avg["precip"] * precip_scale
-    fig, ax1 = plt.subplots(figsize=(12,6))
-    ax1.plot(daily_avg["Date"], daily_avg[y_variable], label=f"Avg {y_variable}", color="blue", marker="o", linestyle="-")
+
+    fig, ax1 = plt.subplots(figsize=(12, 6))
+
+    bar_width = 0.8
+    ax1.bar(daily_avg["Date"], daily_avg[y_variable], label=f"Avg {y_variable}", color="blue", alpha=0.7, width=bar_width)
     ax1.set_xlabel("Date")
     ax1.set_ylabel(f"Avg {y_variable}", color="blue")
     ax1.tick_params(axis='y', labelcolor="blue")
+    ax1.grid(True, linestyle='--', alpha=0.5)
+
     ax2 = ax1.twinx()
     ax2.plot(daily_avg["Date"], daily_avg[x_variable], label=f"Avg {x_variable}", color="red", marker="o", linestyle="--")
+
     if x_variable == "precip":
-        ax2.plot(daily_avg["Date"], daily_avg["precip_scaled"], label=f"Avg Precip (x{precip_scale})", color="green", marker="o", linestyle="-.")
+        ax2.plot(daily_avg["Date"], daily_avg["precip_scaled"], label=f"Avg Precip (x{precip_scale:.1f})", color="green", marker="o", linestyle="-.")
+    
     ax2.set_ylabel(f"{x_variable.capitalize()} (scaled for visibility)", color="black")
-    plt.title(f"Avg {y_variable} vs. {x_variable} Across All Users (Time Blocks: {', '.join(selected_blocks)})")
+
+    plt.title(f"Avg {y_variable} (Bar) vs. {x_variable} (Line) Across All Users (Time Blocks: {', '.join(selected_blocks)})")
+    fig.autofmt_xdate(rotation=45)
     ax1.legend(loc="upper left")
     ax2.legend(loc="upper right")
-    plt.show()
+
+    plt.tight_layout()
+    return fig
 
 def plot_user_weather_analysis(df, user_id, y_variable, x_variable, selected_blocks=None, precip_scale=20):
+    if selected_blocks is None:
+        selected_blocks = ["8-12", "12-16", "16-20"]
+        
     user_df = df[(df["Id"] == user_id) & (df["TimeBlock"].isin(selected_blocks))]
     if user_df.empty:
         print(f"No data found for user ID {user_id} in time blocks {selected_blocks}.")
         return
+    
     user_df["Date"] = pd.to_datetime(user_df["Date"])
+    user_df = user_df.dropna(subset=[y_variable, x_variable, "precip", "temp"])
+    
     daily_avg = user_df.groupby("Date").agg({
         y_variable: "mean",
-        "temp": "mean",
+        x_variable: "mean",
         "precip": "mean"
     }).reset_index()
+
+    if x_variable == "precip":
+        precip_scale = 100 / (daily_avg["precip"].max() + 0.1)
     daily_avg["precip_scaled"] = daily_avg["precip"] * precip_scale
-    fig, ax1 = plt.subplots(figsize=(12,6))
-    ax1.plot(daily_avg["Date"], daily_avg[y_variable], label=f"Avg {y_variable}", color="blue", marker="o", linestyle="-")
+
+    fig, ax1 = plt.subplots(figsize=(12, 6))
+
+    bar_width = 0.8
+    ax1.bar(daily_avg["Date"], daily_avg[y_variable], label=f"Avg {y_variable}", color="blue", alpha=0.7, width=bar_width)
     ax1.set_xlabel("Date")
     ax1.set_ylabel(f"Avg {y_variable}", color="blue")
     ax1.tick_params(axis='y', labelcolor="blue")
+    ax1.grid(True, linestyle='--', alpha=0.5)
+
     ax2 = ax1.twinx()
     ax2.plot(daily_avg["Date"], daily_avg[x_variable], label=f"Avg {x_variable}", color="red", marker="o", linestyle="--")
+
     if x_variable == "precip":
-        ax2.plot(daily_avg["Date"], daily_avg["precip_scaled"], label=f"Avg Precip (x{precip_scale})", color="green", marker="o", linestyle="-.")
+        ax2.plot(daily_avg["Date"], daily_avg["precip_scaled"], label=f"Avg Precip (x{precip_scale:.1f})", color="green", marker="o", linestyle="-.")
+    
     ax2.set_ylabel(f"{x_variable.capitalize()} (scaled for visibility)", color="black")
-    plt.title(f"Avg {y_variable} vs. {x_variable} for User {user_id} (Time Blocks: {', '.join(selected_blocks)})")
+
+    plt.title(f"Avg {y_variable} (Bar) vs. {x_variable} (Line) for User {user_id} (Time Blocks: {', '.join(selected_blocks)})")
+    fig.autofmt_xdate(rotation=45)
     ax1.legend(loc="upper left")
     ax2.legend(loc="upper right")
-    plt.show()
+
+    plt.tight_layout()
+    return fig
 
 def data_used():
-    db_path = "/Users/dotestroet/DataEngineering/Fitbit3/data/fitbit_database_modified.db"
-    weather_path = "/Users/dotestroet/DataEngineering/Fitbit3/data/Chicago 2016-03-11 to 2016-04-13 hourly.csv"
+    db_path = os.path.join(BASE_DIR, "..", "data", "fitbit_database_modified.db")
+    weather_path = os.path.join(BASE_DIR, "..", "data", "Chicago 2016-03-11 to 2016-04-13 hourly.csv")
 
     hourly_calories_df = load_data_from_database(db_path, 'SELECT * FROM hourly_calories')
     hourly_steps_df = load_data_from_database(db_path, 'SELECT * FROM hourly_steps')
+    hourly_intensity_df = load_data_from_database(db_path, 'SELECT * FROM hourly_intensity')
     weather_df = match_weather_df(load_weather_data(weather_path))
 
-    fitbit_df = merge_fitbit_data(hourly_steps_df, hourly_calories_df)
+    fitbit_df = merge_fitbit_data(hourly_steps_df, hourly_calories_df, hourly_intensity_df)
     merged_df = assign_time_blocks(convert_time_to_twentyfour_hours(merge_fitbit_and_weather_data(fitbit_df, weather_df), "ActivityHour"))
 
     return merged_df
@@ -128,6 +180,5 @@ selected_blocks = ["8-12", "12-16", "16-20"]
 filtered_df = merged_df[merged_df["TimeBlock"].isin(selected_blocks)]
 filtered_df["temp_squared"] = filtered_df["temp"] ** 2
     
-run_regression(filtered_df, y_variable = "StepTotal", x_variables = ["temp", "temp_squared", "precip"], selected_blocks = selected_blocks)
 plot_general_weather_analysis(filtered_df, y_variable="StepTotal", x_variable="temp", selected_blocks=selected_blocks)
 plot_user_weather_analysis(filtered_df, user_id=1503960366, y_variable="Calories", x_variable="precip", selected_blocks=selected_blocks)
