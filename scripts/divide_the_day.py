@@ -3,6 +3,11 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
+import os
+import sys
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def load_data_from_database(db_path, query): 
     connection = sqlite3.connect(db_path)
@@ -50,7 +55,7 @@ def plot_bar_chart(df, value_column, title, ylabel, color):
     plt.show()
 
 def main():
-    db_path = "/Users/dotestroet/DataEngineering/Fitbit3/data/fitbit_database_modified.db"
+    db_path = os.path.join(BASE_DIR, "..", "data", "fitbit_database_modified.db")
 
     query_steps_by_pm = "SELECT ActivityHour, StepTotal, TimeOfDay FROM hourly_steps WHERE TimeOfDay = 'PM'"
     query_steps_by_am = "SELECT ActivityHour, StepTotal, TimeOfDay FROM hourly_steps WHERE TimeOfDay = 'AM'"
