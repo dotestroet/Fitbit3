@@ -6,6 +6,10 @@ import sqlite3
 import statsmodels.api as sm
 import sys
 import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "scripts")))
+
+from sleep_analysis_modified import load_activity_data, load_sleep_data, merge_activity_sleep_data
+
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -142,54 +146,36 @@ elif page == "⏳ Time-based Analysis":
 # =================== Sleep Analysis ===================
 elif page == "💤 Sleep Analysis":
     st.title("Sleep Duration Analysis")
+    st.write("This section analyzes how individuals' activity levels affect their sleep durations.")
 
-    conn = sqlite3.connect("fitbit_database.db")
+    # Load and prepare data
+    activity_df = load_activity_data()
+    sleep_df = load_sleep_data()
+    merged_df = merge_activity_sleep_data(activity_df, sleep_df)
 
-    # Query and process data
-    activity_query = """
-    SELECT 
-        Id, ActivityDate, VeryActiveMinutes, FairlyActiveMinutes, LightlyActiveMinutes 
-    FROM daily_activity;
-    """
-    sleep_query = """
-    SELECT 
-        Id, date as SleepDate, logId, SUM(value) as TotalMinutesAsleep 
-    FROM minute_sleep
-    GROUP BY Id, logId, SleepDate;
-    """
-    activity_data = pd.read_sql_query(activity_query, conn)
-    sleep_data = pd.read_sql_query(sleep_query, conn)
+    # Let user select variable
+    st.subheader("⚙️ Select Variable to Analyze Against Sleep Duration")
+    variable_options = ["TotalActiveMinutes", "VeryActiveMinutes", "FairlyActiveMinutes", "LightlyActiveMinutes"]
+    selected_variable = st.selectbox("Choose an activity variable:", variable_options)
 
-    activity_data['ActivityDate'] = pd.to_datetime(activity_data['ActivityDate'], format='%m/%d/%Y')
-    sleep_data['SleepDate'] = pd.to_datetime(sleep_data['SleepDate'], format='%m/%d/%Y %I:%M:%S %p')
-
-    activity_data['TotalActiveMinutes'] = (
-        activity_data['VeryActiveMinutes'] +
-        activity_data['FairlyActiveMinutes'] +
-        activity_data['LightlyActiveMinutes']
-    )
-
-    merged = pd.merge(activity_data, sleep_data, left_on=['Id', 'ActivityDate'], right_on=['Id', 'SleepDate'])
-    
-    X = merged['TotalActiveMinutes']
-    y = merged['TotalMinutesAsleep']
+    # Prepare regression
+    X = merged_df[selected_variable]
+    y = merged_df["TotalMinutesAsleep"]
     X_const = sm.add_constant(X)
-
     model = sm.OLS(y, X_const).fit()
 
+    # Display regression summary
     st.subheader("📋 Regression Summary")
     st.text(model.summary())
 
-    # Plot
+    # Scatter plot
     st.subheader("📈 Scatter Plot with Regression Line")
     fig, ax = plt.subplots()
     sns.regplot(x=X, y=y, ax=ax, line_kws={"color": "red"})
-    ax.set_xlabel("Total Active Minutes")
+    ax.set_xlabel(selected_variable)
     ax.set_ylabel("Total Minutes Asleep")
-    ax.set_title("Activity vs Sleep Duration")
+    ax.set_title(f"{selected_variable} vs Sleep Duration")
     st.pyplot(fig)
-
-
 
 
 # =================== Weather & Activity ===================
