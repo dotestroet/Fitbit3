@@ -2,24 +2,16 @@
 import sqlite3
 import pandas as pd
 import statsmodels.api as sm
-conn = sqlite3.connect("fitbit_database.db")
-
-# %%
-# check tables
-tables_query = "SELECT name FROM sqlite_master WHERE type='table';"
-tables = pd.read_sql_query(tables_query, conn)
-
-tables
-
+conn = sqlite3.connect("/Users/andrew/Documents/VU_2025_1/Fitbit3/Fitbit3/fitbit_database_modified.db")
 
 # %%
 # check each column
-columns_info = {}
-for table_name in tables['name']:
-    query = f"PRAGMA table_info({table_name});"
-    columns_info[table_name] = pd.read_sql_query(query, conn)
+# columns_info = {}
+# for table_name in tables['name']:
+#     query = f"PRAGMA table_info({table_name});"
+#     columns_info[table_name] = pd.read_sql_query(query, conn)
 
-columns_info
+# columns_info
 
 # %%
 # activity data in daily_activity
