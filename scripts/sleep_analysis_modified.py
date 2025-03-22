@@ -4,8 +4,7 @@ import pandas as pd
 import statsmodels.api as sm
 from datetime import datetime
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "..", "data", "/Users/andrew/Documents/VU_2025_1/Fitbit3/Fitbit3/scripts/fitbit_database_modified.db")
+DB_PATH = "data/fitbit_database.db"
 
 def load_data_from_database(db_path, query):
     connection = sqlite3.connect(db_path)

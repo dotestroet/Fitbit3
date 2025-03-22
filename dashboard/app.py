@@ -6,17 +6,16 @@ import sqlite3
 import statsmodels.api as sm
 import sys
 import os
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "scripts")))
-
-from sleep_analysis_modified import load_activity_data, load_sleep_data, merge_activity_sleep_data
-
-
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
+
 from scripts.database_queries import fetch_table_data, get_table_names, save_table_data
 from scripts.graphs import *
 from scripts.weather_analysis import merged_df, run_regression, plot_general_weather_analysis, plot_user_weather_analysis
 from scripts.divide_the_day import convert_time_to_twentyfour_hours, assign_time_blocks
+from scripts.sleep_analysis_modified import load_activity_data, load_sleep_data, merge_activity_sleep_data, run_regression
 
 st.set_page_config(layout="wide")
 st.sidebar.title("Navigation")
