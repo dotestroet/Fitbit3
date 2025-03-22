@@ -90,6 +90,8 @@ elif page == "📊 User Statistics":
     heart_rate_data = fetch_table_data("heart_rate", use_modified=True)
     weight_data = fetch_table_data("weight_log", use_modified=True)
 
+    merged_data = fetch_table_data("merged_heart_rate_activity", use_modified=True)
+
     user_id = st.sidebar.selectbox("Select User ID", daily_activity["Id"].unique())
 
     user_data = daily_activity[daily_activity["Id"] == user_id]
@@ -149,7 +151,7 @@ elif page == "📊 User Statistics":
 
     selected_date = st.date_input(
         "Select a Date",
-        value=start_date,  # Default to the start date
+        value=start_date, 
         min_value=start_date,
         max_value=end_date
     )
@@ -166,6 +168,85 @@ elif page == "📊 User Statistics":
                 st.pyplot(fig)
 
 
+    merged_data['Date'] = pd.to_datetime(merged_data['Date']).dt.date
+    total_users = merged_data["Id"].nunique()
+    user_tracking_days = merged_data.groupby("Id")["Date"].nunique().reset_index()
+    user_tracking_days.columns = ["Id", "TrackedDays"]
+
+    daily_summary = merged_data.groupby(["Id", "Date"]).agg(
+        AvgHeartRate=("Value", "mean"),  
+        AvgDailySteps=("TotalSteps", "mean"),
+        AvgDailyCalories=("Calories", "mean"),
+        AvgVeryActiveMinutes=("VeryActiveMinutes", "mean") 
+    ).reset_index()
+
+
+    daily_summary = daily_summary.merge(user_tracking_days, on="Id", how="left")
+    user_id = st.sidebar.selectbox("Select User ID", merged_data["Id"].unique())
+    user_data = daily_summary[daily_summary["Id"] == user_id]
+    tracked_days = user_tracking_days[user_tracking_days["Id"] == user_id]["TrackedDays"].values[0]
+
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total Unique Individuals", total_users)
+    with col2:
+        st.metric("Tracked Days", tracked_days)
+    with col3:
+        st.metric("Average Heart Rate", round(user_data["AvgHeartRate"].mean(), 2))
+
+    col4, col5, col6 = st.columns(3)
+    with col4:
+        st.metric("Average Daily Steps", round(user_data["AvgDailySteps"].mean(), 2))
+    with col5:
+        st.metric("Average Daily Calories Burnt", round(user_data["AvgDailyCalories"].mean(), 2))
+    with col6:
+        st.metric("Average Daily Very Active Minutes", round(user_data["AvgVeryActiveMinutes"].mean(), 2))
+
+
+    st.subheader(f"Daily Summary for User {user_id}")
+    st.dataframe(user_data)
+
+
+    st.subheader(f"Average Heart Rate Over Time for User {user_id}")
+    fig, ax = plt.subplots()
+    ax.plot(user_data["Date"], user_data["AvgHeartRate"], marker="o", linestyle="-", color="red")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Average Heart Rate")
+    ax.set_title("Daily Average Heart Rate Over Time")
+    plt.xticks(rotation=45)
+    st.pyplot(fig)
+
+
+    st.subheader(f"Average Daily Steps Over Time for User {user_id}")
+    fig, ax = plt.subplots()
+    ax.plot(user_data["Date"], user_data["AvgDailySteps"], marker="o", linestyle="-", color="blue")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Average Daily Steps")
+    ax.set_title("Average Daily Steps Over Time")
+    plt.xticks(rotation=45)
+    st.pyplot(fig)
+
+
+    st.subheader(f"Average Daily Calories Burnt Over Time for User {user_id}")
+    fig, ax = plt.subplots()
+    ax.plot(user_data["Date"], user_data["AvgDailyCalories"], marker="o", linestyle="-", color="green")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Average Daily Calories Burnt")
+    ax.set_title("Average Daily Calories Burnt Over Time")
+    plt.xticks(rotation=45)
+    st.pyplot(fig)
+
+
+    st.subheader(f"Average Daily Very Active Minutes Over Time for User {user_id}")
+    fig, ax = plt.subplots()
+    ax.plot(user_data["Date"], user_data["AvgVeryActiveMinutes"], marker="o", linestyle="-", color="purple")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Average Daily Very Active Minutes")
+    ax.set_title("Average Daily Very Active Minutes Over Time")
+    plt.xticks(rotation=45)
+    st.pyplot(fig)
+    
 # =================== Time-based Analysis ===================
 elif page == "⏳ Time-based Analysis":
     st.title("Time-Based Activity Analysis")
