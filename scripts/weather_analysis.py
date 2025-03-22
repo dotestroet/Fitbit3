@@ -58,7 +58,7 @@ def match_weather_df(weather_df):
 def merge_fitbit_and_weather_data(fitbit_df, weather_df):
     return pd.merge(fitbit_df, weather_df, on=["ActivityHour", "Date", "TimeOfDay"], how="inner")
 
-def run_regression(df, y_variable, x_variables, selected_blocks=None):
+def run_weather_regression_(df, y_variable=None, x_variables=None, selected_blocks=None):
     if selected_blocks is not None:
         df = df[df["TimeBlock"].isin(selected_blocks)]
     if df.empty:
@@ -72,7 +72,7 @@ def run_regression(df, y_variable, x_variables, selected_blocks=None):
     print(model.summary())
     return model
 
-def plot_general_weather_analysis(df, y_variable, x_variable, selected_blocks=None, precip_scale=20):
+def plot_general_weather_analysis(df, y_variable = None, x_variable = None, selected_blocks=None, precip_scale=20):
     if selected_blocks is None:
         selected_blocks = ["8-12", "12-16", "16-20"]
     filtered_df = df[df["TimeBlock"].isin(selected_blocks)]
@@ -114,7 +114,7 @@ def plot_general_weather_analysis(df, y_variable, x_variable, selected_blocks=No
     plt.tight_layout()
     return fig
 
-def plot_user_weather_analysis(df, user_id, y_variable, x_variable, selected_blocks=None, precip_scale=20):
+def plot_user_weather_analysis(df, user_id, y_variable = None, x_variable = None, selected_blocks=None, precip_scale=20):
     if selected_blocks is None:
         selected_blocks = ["8-12", "12-16", "16-20"]
         

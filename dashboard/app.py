@@ -13,7 +13,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 
 from scripts.database_queries import fetch_table_data, get_table_names, save_table_data
 from scripts.graphs import *
-from scripts.weather_analysis import merged_df, run_regression, plot_general_weather_analysis, plot_user_weather_analysis
+from scripts.weather_analysis import merged_df, run_weather_regression_, plot_general_weather_analysis, plot_user_weather_analysis
 from scripts.divide_the_day import convert_time_to_twentyfour_hours, assign_time_blocks
 from scripts.sleep_analysis_modified import load_activity_data, load_sleep_data, merge_activity_sleep_data, run_regression
 
@@ -268,7 +268,8 @@ elif page == "🌦️ Weather & Activity":
         st.subheader("General Regression Analysis With All Users")
         col1, col2 = st.columns([1, 1])
         with col1:
-            model = run_regression(filtered_df, y_variable=y_variable, x_variables=x_variables, selected_blocks=selected_blocks)
+            print(f"run_regression function source: {run_regression.__module__}")
+            model = run_weather_regression_(filtered_df, y_variable=y_variable, x_variables=x_variables, selected_blocks=selected_blocks)
             if model:
                 summarize_regression_results(model, y_variable, x_variables)
         with col2:
@@ -282,7 +283,8 @@ elif page == "🌦️ Weather & Activity":
         st.subheader(f"User-Specific Regression Analysis for User {user_id}")
         col1, col2 = st.columns([1, 1])
         with col1:
-            model = run_regression(user_specific_df, y_variable=y_variable, x_variables=x_variables, selected_blocks=selected_blocks)
+            print(f"run_regression function source: {run_regression.__module__}")
+            model = run_weather_regression_(user_specific_df, y_variable=y_variable, x_variables=x_variables, selected_blocks=selected_blocks)
             if model:
                 summarize_regression_results(model, y_variable, x_variables)
         with col2:
