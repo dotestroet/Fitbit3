@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import sqlite3
+import statsmodels.api as sm
 import sys
 import os
 
@@ -140,6 +142,53 @@ elif page == "⏳ Time-based Analysis":
 # =================== Sleep Analysis ===================
 elif page == "💤 Sleep Analysis":
     st.title("Sleep Duration Analysis")
+
+    conn = sqlite3.connect("fitbit_database.db")
+
+    # Query and process data
+    activity_query = """
+    SELECT 
+        Id, ActivityDate, VeryActiveMinutes, FairlyActiveMinutes, LightlyActiveMinutes 
+    FROM daily_activity;
+    """
+    sleep_query = """
+    SELECT 
+        Id, date as SleepDate, logId, SUM(value) as TotalMinutesAsleep 
+    FROM minute_sleep
+    GROUP BY Id, logId, SleepDate;
+    """
+    activity_data = pd.read_sql_query(activity_query, conn)
+    sleep_data = pd.read_sql_query(sleep_query, conn)
+
+    activity_data['ActivityDate'] = pd.to_datetime(activity_data['ActivityDate'], format='%m/%d/%Y')
+    sleep_data['SleepDate'] = pd.to_datetime(sleep_data['SleepDate'], format='%m/%d/%Y %I:%M:%S %p')
+
+    activity_data['TotalActiveMinutes'] = (
+        activity_data['VeryActiveMinutes'] +
+        activity_data['FairlyActiveMinutes'] +
+        activity_data['LightlyActiveMinutes']
+    )
+
+    merged = pd.merge(activity_data, sleep_data, left_on=['Id', 'ActivityDate'], right_on=['Id', 'SleepDate'])
+    
+    X = merged['TotalActiveMinutes']
+    y = merged['TotalMinutesAsleep']
+    X_const = sm.add_constant(X)
+
+    model = sm.OLS(y, X_const).fit()
+
+    st.subheader("📋 Regression Summary")
+    st.text(model.summary())
+
+    # Plot
+    st.subheader("📈 Scatter Plot with Regression Line")
+    fig, ax = plt.subplots()
+    sns.regplot(x=X, y=y, ax=ax, line_kws={"color": "red"})
+    ax.set_xlabel("Total Active Minutes")
+    ax.set_ylabel("Total Minutes Asleep")
+    ax.set_title("Activity vs Sleep Duration")
+    st.pyplot(fig)
+
 
 
 
