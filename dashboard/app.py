@@ -2,8 +2,14 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import sqlite3
+import statsmodels.api as sm
 import sys
 import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "scripts")))
+
+from sleep_analysis_modified import load_activity_data, load_sleep_data, merge_activity_sleep_data
+
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
@@ -175,7 +181,36 @@ elif page == "⏳ Time-based Analysis":
 # =================== Sleep Analysis ===================
 elif page == "💤 Sleep Analysis":
     st.title("Sleep Duration Analysis")
+    st.write("This section analyzes how individuals' activity levels affect their sleep durations.")
 
+    # Load and prepare data
+    activity_df = load_activity_data()
+    sleep_df = load_sleep_data()
+    merged_df = merge_activity_sleep_data(activity_df, sleep_df)
+
+    # Let user select variable
+    st.subheader("⚙️ Select Variable to Analyze Against Sleep Duration")
+    variable_options = ["TotalActiveMinutes", "VeryActiveMinutes", "FairlyActiveMinutes", "LightlyActiveMinutes"]
+    selected_variable = st.selectbox("Choose an activity variable:", variable_options)
+
+    # Prepare regression
+    X = merged_df[selected_variable]
+    y = merged_df["TotalMinutesAsleep"]
+    X_const = sm.add_constant(X)
+    model = sm.OLS(y, X_const).fit()
+
+    # Display regression summary
+    st.subheader("📋 Regression Summary")
+    st.text(model.summary())
+
+    # Scatter plot
+    st.subheader("📈 Scatter Plot with Regression Line")
+    fig, ax = plt.subplots()
+    sns.regplot(x=X, y=y, ax=ax, line_kws={"color": "red"})
+    ax.set_xlabel(selected_variable)
+    ax.set_ylabel("Total Minutes Asleep")
+    ax.set_title(f"{selected_variable} vs Sleep Duration")
+    st.pyplot(fig)
 
   
 # =================== Weather & Activity ===================
