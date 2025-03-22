@@ -37,6 +37,8 @@ sleep analysis
 weather impact on activity
 database management tools
 
+Created summary statistics for the merged heart rate activity. 
+
 ## Folder Structure 
 
 scripts: 
