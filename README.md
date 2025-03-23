@@ -12,8 +12,19 @@ Dashboard development for interactive data visualization
 ## Exploration
 part1_exploration.py 
 
-## Regression
-Part3.py
+## weather analysis
+This part is an interactive dashboard that analyzes the relationship between weather variables and activity metrics.
+### features
+- General regression analysis: Understand the overall impact of selected weahter variables on activity metrics.
+- User-specific:  Perform personalized regression analysis for individual users.
+- Time Block Selection: Analyze specific time periods to capture changes throughout the day.
+- Weather variables: Choose from temperature, temperature squared and precipitation as predictors.
+- Interactive Plots: Visualize reression results and data trends.
+### How to Use
+- Select User Id and Time Blocks: Choose the user and specific time ranges from the sidebar.
+- Choose Target and Weather Variables: pick the activity metric to analyzse and weather variables to include.
+- the Dasboard will display: Regression results and grapic analysis
+
 
 ## Data Wrangling (part4_wrangling.py)
 Did a small data exploration of fitbit_database.db. Started with data cleaning by finding the outliers, missing, values and duplicates. 
