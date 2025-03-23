@@ -4,7 +4,7 @@ import pandas as pd
 import statsmodels.api as sm
 from datetime import datetime
 
-DB_PATH = "data/fitbit_database.db"
+DB_PATH = "data/fitbit_database_modified.db"
 
 def load_data_from_database(db_path, query):
     connection = sqlite3.connect(db_path)
