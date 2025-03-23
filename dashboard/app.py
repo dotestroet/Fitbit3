@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import sqlite3
 import statsmodels.api as sm
+import scipy.stats as stats
 import sys
 import os
 
@@ -15,7 +16,17 @@ from scripts.database_queries import fetch_table_data, get_table_names, save_tab
 from scripts.graphs import *
 from scripts.weather_analysis import merged_df, run_weather_regression_, plot_general_weather_analysis, plot_user_weather_analysis
 from scripts.divide_the_day import convert_time_to_twentyfour_hours, assign_time_blocks
-from scripts.sleep_analysis_modified import load_activity_data, load_sleep_data, merge_activity_sleep_data, run_regression
+from scripts.new_sleep_analysis import (
+    connect_to_db,
+    get_sleep_minutes_per_day,
+    get_daily_activity_with_active_minutes,
+    prepare_merged_data,
+    run_regression,
+    plot_sleep_vs_activity,
+    run_sedentary_regression,
+    plot_sleep_vs_sedentary,
+    plot_residual_diagnostics
+)
 
 st.set_page_config(layout="wide")
 st.sidebar.title("Navigation")
@@ -179,37 +190,131 @@ elif page == "⏳ Time-based Analysis":
 
 # =================== Sleep Analysis ===================
 elif page == "💤 Sleep Analysis":
-    st.title("Sleep Duration Analysis")
-    st.write("This section analyzes how individuals' activity levels affect their sleep durations.")
+    st.title("📈 Sleep Duration Regression Analysis")
+    db_path = "data/fitbit_database_modified.db"
+    conn = connect_to_db(db_path)
 
-    # Load and prepare data
-    activity_df = load_activity_data()
-    sleep_df = load_sleep_data()
-    merged_df = merge_activity_sleep_data(activity_df, sleep_df)
+    # Load & Merge
+    sleep_df = get_sleep_minutes_per_day(conn)
+    activity_df = get_daily_activity_with_active_minutes(conn)
+    merged_df = prepare_merged_data(sleep_df, activity_df)
 
-    # Let user select variable
-    st.subheader("⚙️ Select Variable to Analyze Against Sleep Duration")
-    variable_options = ["TotalActiveMinutes", "VeryActiveMinutes", "FairlyActiveMinutes", "LightlyActiveMinutes"]
-    selected_variable = st.selectbox("Choose an activity variable:", variable_options)
+    # === Sidebar Filters ===
+    st.sidebar.header("Filter Options")
+    user_ids = merged_df["Id"].unique()
+    selected_id = st.sidebar.selectbox("Select User ID (or view all)", options=["All"] + sorted(user_ids.tolist()))
 
-    # Prepare regression
-    X = merged_df[selected_variable]
-    y = merged_df["TotalMinutesAsleep"]
-    X_const = sm.add_constant(X)
-    model = sm.OLS(y, X_const).fit()
+    activity_options = [
+        "TotalActiveMinutes",
+        "SedentaryMinutes",
+        "VeryActiveMinutes",
+        "FairlyActiveMinutes",
+        "LightlyActiveMinutes"
+    ]
+    selected_predictor = st.sidebar.selectbox("Select Predictor Variable", activity_options)
 
-    # Display regression summary
-    st.subheader("📋 Regression Summary")
-    st.text(model.summary())
+    # Filter data
+    if selected_id != "All":
+        filtered_df = merged_df[merged_df["Id"] == selected_id]
+    else:
+        filtered_df = merged_df.copy()
 
-    # Scatter plot
-    st.subheader("📈 Scatter Plot with Regression Line")
-    fig, ax = plt.subplots()
-    sns.regplot(x=X, y=y, ax=ax, line_kws={"color": "red"})
-    ax.set_xlabel(selected_variable)
-    ax.set_ylabel("Total Minutes Asleep")
-    ax.set_title(f"{selected_variable} vs Sleep Duration")
-    st.pyplot(fig)
+    if filtered_df.empty:
+        st.warning("No data available for the selected user.")
+    else:
+        # Run regression
+        X = sm.add_constant(filtered_df[selected_predictor])
+        y = filtered_df["asleep_minutes"]
+        model = sm.OLS(y, X).fit()
+
+        # === Key Regression Metrics ===
+        st.subheader("📋 Key Regression Metrics")
+        r2 = model.rsquared
+        adj_r2 = model.rsquared_adj
+        coef_df = pd.DataFrame({
+            "Predictor": model.params.index,
+            "Coefficient": model.params.values,
+            "P-value": model.pvalues.values
+        }).reset_index(drop=True)
+
+        coef_df = coef_df[coef_df["Predictor"] != "const"]
+        significant = coef_df[coef_df["P-value"] < 0.05]
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("R-squared", f"{r2:.4f}")
+            st.metric("Adjusted R-squared", f"{adj_r2:.4f}")
+        with col2:
+            if not significant.empty:
+                st.success("✅ Significant Predictors:")
+                for _, row in significant.iterrows():
+                    st.write(f"- **{row['Predictor']}**: coef = `{row['Coefficient']:.2f}`, p = `{row['P-value']:.4f}`")
+            else:
+                st.error("No significant predictors (p ≥ 0.05)")
+
+        # === Scatter Plot with Regression Line ===
+        st.subheader(f"📈 Sleep Duration vs {selected_predictor}")
+        fig1, ax1 = plt.subplots()
+        sns.scatterplot(data=filtered_df, x=selected_predictor, y="asleep_minutes", ax=ax1, alpha=0.6)
+        sorted_X = pd.DataFrame({selected_predictor: sorted(filtered_df[selected_predictor]), "const": 1})
+        y_pred = model.predict(sorted_X[["const", selected_predictor]])
+        ax1.plot(sorted_X[selected_predictor], y_pred, color="red", label="Regression Line")
+        ax1.set_xlabel(selected_predictor)
+        ax1.set_ylabel("Minutes Asleep")
+        ax1.set_title(f"Sleep vs {selected_predictor}")
+        ax1.legend()
+        st.pyplot(fig1)
+
+        # === Residual Diagnostics ===
+        st.subheader("🧪 Residual Diagnostics")
+        residuals = model.resid
+        col3, col4 = st.columns(2)
+        with col3:
+            fig2, ax2 = plt.subplots()
+            sns.histplot(residuals, kde=True, bins=30, ax=ax2)
+            ax2.set_title("Histogram of Residuals")
+            st.pyplot(fig2)
+        with col4:
+            fig3 = plt.figure()
+            stats.probplot(residuals, dist="norm", plot=plt)
+            plt.title("Q-Q Plot of Residuals")
+            st.pyplot(fig3)
+
+        # === Comparison: All Activity Types Together ===
+        st.markdown("---")
+        st.subheader("📊 Comparison of Activity Types (Multi-variable Regression)")
+
+        # Run multi-variable regression
+        X_multi = filtered_df[["VeryActiveMinutes", "FairlyActiveMinutes", "LightlyActiveMinutes"]]
+        X_multi = sm.add_constant(X_multi)
+        y_multi = filtered_df["asleep_minutes"]
+        multi_model = sm.OLS(y_multi, X_multi).fit()
+
+        coef_df = pd.DataFrame({
+            "Predictor": multi_model.params.index,
+            "Coefficient": multi_model.params.values,
+            "P-value": multi_model.pvalues.values
+        }).reset_index(drop=True)
+
+        # Remove intercept
+        coef_df = coef_df[coef_df["Predictor"] != "const"]
+        coef_df["Significant"] = coef_df["P-value"] < 0.05
+
+        # Bar plot of coefficients
+        fig_bar, ax_bar = plt.subplots()
+        sns.barplot(
+            data=coef_df,
+            x="Coefficient",
+            y="Predictor",
+            hue="Significant",
+            dodge=False,
+            palette={True: "green", False: "gray"},
+            ax=ax_bar
+        )
+        ax_bar.set_title("Effect of Activity Types on Sleep Duration")
+        ax_bar.set_xlabel("Coefficient (Effect on Minutes Asleep)")
+        ax_bar.set_ylabel("Activity Type")
+        st.pyplot(fig_bar)
 
   
 # =================== Weather & Activity ===================
