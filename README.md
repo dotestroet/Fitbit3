@@ -12,9 +12,9 @@ Dashboard development for interactive data visualization
 ## Exploration
 part1_exploration.py 
 
-## weather analysis
+## Weather Impact on Activity
 This part is an interactive dashboard that analyzes the relationship between weather variables and activity metrics.
-### features
+### Features
 - General regression analysis: Understand the overall impact of selected weahter variables on activity metrics.
 - User-specific:  Perform personalized regression analysis for individual users.
 - Time Block Selection: Analyze specific time periods to capture changes throughout the day.
