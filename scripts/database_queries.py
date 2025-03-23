@@ -26,12 +26,15 @@ def get_column_names(table_name, use_modified=False):
     
     return [col[1] for col in columns]
 
-def fetch_table_data(table_name, use_modified=False):  
+def fetch_table_data(table_name, use_modified=False):
     db_path = MODIFIED_DB_PATH if use_modified else DB_PATH  
-    conn = sqlite3.connect(db_path)
-    df = pd.read_sql(f"SELECT * FROM {table_name}", conn)
-    conn.close()
-    
+    try:
+        conn = sqlite3.connect(db_path)
+        df = pd.read_sql(f"SELECT * FROM {table_name}", conn)
+        conn.close()
+    except Exception as e:
+        print(f"Error fetching data from {table_name}: {e}")
+        return pd.DataFrame() 
     return df
 
 def save_table_data(df, table_name, use_modified=False): 
