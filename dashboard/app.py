@@ -281,7 +281,7 @@ elif page == "⏳ Time-based Analysis":
 # =================== Sleep Analysis ===================
 elif page == "💤 Sleep Analysis":
     st.title("📈 Sleep Duration Regression Analysis")
-    db_path = "data/fitbit_database_modified.db"
+    db_path = "../data/fitbit_database_modified.db"
     conn = connect_to_db(db_path)
 
     # Load & Merge
