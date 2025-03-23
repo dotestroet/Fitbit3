@@ -28,6 +28,9 @@ Merged data from multiple tables:
 
 Implemented checks to ensure there are no missing values, duplicates or other issues. 
 
+## Changed Sleep_Analysis_modified
+This file does the Regression for sleep Anaysis. 
+
 ## Dashboard
 dashboard/app.py - Streamlit is used
 Features
@@ -40,7 +43,7 @@ database management tools
 ## Folder Structure 
 
 scripts: 
-dashobard:
+dashboard:
 data:
 
 ## Key Changes
