@@ -43,7 +43,7 @@ def load_weather_data(file_path):
 
 def match_weather_df(weather_df):
     weather_df["ActivityHour"] = pd.to_datetime(weather_df["ActivityHour"])
-    weather_df["Date"] = weather_df["ActivityHour"].dt.strftime("%-m/%-d/%Y")
+    weather_df["Date"] = weather_df["ActivityHour"].dt.month.astype(str) + '/' + weather_df["ActivityHour"].dt.day.astype(str) + '/' + weather_df["ActivityHour"].dt.year.astype(str)
     weather_df["Hour"] = weather_df["ActivityHour"].dt.hour  
     weather_df["MinuteSecond"] = weather_df["ActivityHour"].dt.strftime(":%M:%S")
     weather_df["ActivityHour_12"] = weather_df["Hour"].copy()
